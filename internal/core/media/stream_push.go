@@ -6,11 +6,12 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/gowvp/gb28181/internal/core/bz"
 	"github.com/ixugo/goweb/pkg/hook"
 	"github.com/ixugo/goweb/pkg/orm"
 	"github.com/ixugo/goweb/pkg/web"
 	"github.com/jinzhu/copier"
+
+	"github.com/gowvp/gb28181/internal/core/bz"
 )
 
 // StreamPushStorer Instantiation interface
@@ -121,6 +122,12 @@ type PublishInput struct {
 
 // Publish 由于 hook 的函数，无需 web.error 封装
 func (c *Core) Publish(ctx context.Context, in PublishInput) error {
+	var streamPushInput = AddStreamPushInput{
+		App:            in.App,
+		Stream:         in.Stream,
+		IsAuthDisabled: false,
+	}
+	c.AddStreamPush(ctx, &streamPushInput)
 	result, err := c.GetStreamPushByAppStream(ctx, in.App, in.Stream)
 	if err != nil {
 		return err
@@ -140,6 +147,7 @@ func (c *Core) Publish(ctx context.Context, in PublishInput) error {
 		b.PushedAt = &now
 		b.Session = in.Session
 	}, orm.Where("id=?", result.ID))
+
 }
 
 func (c *Core) UnPublish(ctx context.Context, app, stream string) error {
