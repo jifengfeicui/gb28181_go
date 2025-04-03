@@ -126,10 +126,10 @@ func (n *NodeManager) connection(server *MediaServer, serverPort int) {
 
 	log.Info("ZLM 服务节点连接中")
 
-	for {
+	for i := range 5 {
 		resp, err := engine.GetServerConfig()
 		if err != nil {
-			log.Error("ZLM 服务节点连接失败", "err", err)
+			log.Error("ZLM 服务节点连接失败", "err", err, "retry", i)
 			time.Sleep(10 * time.Second)
 			continue
 		}
@@ -247,4 +247,13 @@ func (n *NodeManager) AddStreamProxy(server *MediaServer, in zlm.AddStreamProxyR
 		Secret: server.Secret,
 	})
 	return e.AddStreamProxy(in)
+}
+
+func (n *NodeManager) GetSnapshot(server *MediaServer, in zlm.GetSnapRequest) ([]byte, error) {
+	addr := fmt.Sprintf("http://%s:%d", server.IP, server.Ports.HTTP)
+	e := n.zlm.SetConfig(zlm.Config{
+		URL:    addr,
+		Secret: server.Secret,
+	})
+	return e.GetSnap(in)
 }

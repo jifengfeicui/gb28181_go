@@ -58,6 +58,8 @@ func NewServer(cfg *conf.Bootstrap, store gb28181.GB28181, sc sms.Core) (*Server
 	msg.Handle("Keepalive", api.sipMessageKeepalive)
 	msg.Handle("Catalog", api.sipMessageCatalog)
 	msg.Handle("DeviceInfo", api.sipMessageDeviceInfo)
+	msg.Handle("ConfigDownload", api.sipMessageConfigDownload)
+	msg.Handle("DeviceConfig", api.handleDeviceConfig)
 
 	// msg.Handle("RecordInfo", api.handlerMessage)
 
@@ -88,12 +90,17 @@ func NewServer(cfg *conf.Bootstrap, store gb28181.GB28181, sc sms.Core) (*Server
 func (s *Server) startTickerCheck() {
 	conc.Timer(context.Background(), 60*time.Second, time.Second, func() {
 		now := time.Now()
-		s.memoryStorer.RangeDevices(func(key string, value *Device) bool {
-			if !value.IsOnline {
+		s.memoryStorer.RangeDevices(func(key string, ipc *Device) bool {
+			if !ipc.IsOnline {
 				return true
 			}
 
-			if sub := now.Sub(value.LastKeepaliveAt); sub >= 3*60*time.Second || value.conn == nil {
+			timeout := time.Duration(ipc.keepaliveTimeout) * time.Duration(ipc.keepaliveInterval) * time.Second
+			if timeout <= 0 {
+				timeout = 3 * 60 * time.Second
+			}
+
+			if sub := now.Sub(ipc.LastKeepaliveAt); sub >= timeout || ipc.conn == nil {
 				s.gb.logout(key, func(d *gb28181.Device) {
 					d.IsOnline = false
 				})
@@ -207,4 +214,9 @@ func (s *Server) Play(in *PlayInput) error {
 
 func (s *Server) StopPlay(in *StopPlayInput) error {
 	return s.gb.StopPlay(in)
+}
+
+// QuerySnapshot 厂商实现抓图的少，sip 层已实现，先搁置
+func (s *Server) QuerySnapshot(deviceID, channelID string) error {
+	return s.gb.QuerySnapshot(deviceID, channelID)
 }

@@ -29,6 +29,7 @@ type Device struct {
 
 	IsOnline bool
 	Address  string
+	Password string
 
 	conn   sip.Connection
 	source net.Addr
@@ -37,6 +38,9 @@ type Device struct {
 	LastKeepaliveAt time.Time
 	LastRegisterAt  time.Time
 	Expires         int
+
+	keepaliveInterval uint16
+	keepaliveTimeout  uint16
 }
 
 func NewDevice(conn sip.Connection, d *gb28181.Device) *Device {
@@ -63,9 +67,26 @@ func NewDevice(conn sip.Connection, d *gb28181.Device) *Device {
 		LastKeepaliveAt: d.KeepaliveAt.Time,
 		LastRegisterAt:  d.RegisteredAt.Time,
 		IsOnline:        d.IsOnline,
+		Password:        d.Password,
 	}
 
 	return &c
+}
+
+// CheckConnection 检查 udp 设备能否通信
+func (d *Device) CheckConnection() error {
+	const timeout = 2 * time.Second
+
+	if d.source.Network() == "tcp" {
+		return nil
+	}
+	// 创建临时UDP连接进行检查
+	tempConn, err := net.DialTimeout("udp", d.source.String(), timeout)
+	if err != nil {
+		return fmt.Errorf("UDP连接失败: %w", err)
+	}
+	defer tempConn.Close()
+	return nil
 }
 
 func (d *Device) LoadChannels(channels ...*gb28181.Channel) {

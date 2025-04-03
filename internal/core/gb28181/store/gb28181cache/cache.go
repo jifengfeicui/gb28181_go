@@ -56,6 +56,11 @@ func (c *Cache) LoadDeviceToMemory(conn sip.Connection) {
 
 		dev := gbs.NewDevice(conn, d)
 		if dev != nil {
+			if err := dev.CheckConnection(); err != nil {
+				slog.Warn("检查设备连接失败", "err", err, "device_id", d.DeviceID, "to", dev.To())
+				continue
+			}
+
 			slog.Debug("load device to memory", "device_id", d.DeviceID, "to", dev.To())
 			channels := make([]*gb28181.Channel, 0, 8)
 			_, err := c.Storer.Channel().Find(context.TODO(), &channels, web.NewPagerFilterMaxSize(), orm.Where("device_id=?", d.DeviceID))
@@ -88,8 +93,9 @@ func (c *Cache) Change(deviceID string, changeFn func(*gb28181.Device), changeFn
 	dev2.LastKeepaliveAt = dev.KeepaliveAt.Time
 	dev2.LastRegisterAt = dev.RegisteredAt.Time
 	dev2.Expires = dev.Expires
+	dev2.Password = dev.Password
+	dev2.Address = dev.Address
 	changeFn2(dev2)
-
 	if !dev2.IsOnline {
 		if err := c.Storer.Channel().BatchEdit(context.TODO(), "is_online", false, orm.Where("did=?", dev.ID)); err != nil {
 			slog.Error("更新通道离线状态失败", "error", err)
